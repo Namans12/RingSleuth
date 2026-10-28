@@ -324,7 +324,7 @@ export async function runSync(opts) {
   }
 
   /* ---- report */
-  log(`FraudGraph data sync — ${fixtures ? "INTERFACE FIXTURES" : opts.strict ? "official (strict)" : "official"}${opts.dryRun ? " [dry run]" : ""}`);
+  log(`RingSleuth data sync — ${fixtures ? "INTERFACE FIXTURES" : opts.strict ? "official (strict)" : "official"}${opts.dryRun ? " [dry run]" : ""}`);
   log(`  mode           ${mode}`);
   log(`  answer files   ${answers.size} found, ${validCases} contract-valid`);
   log(`  traces         ${traces.size} valid of ${copyTraces.length} present`);

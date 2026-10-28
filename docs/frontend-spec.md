@@ -1,7 +1,7 @@
-# FraudGraph Investigator: Frontend Build Spec
+# RingSleuth: Frontend Build Spec
 
 **Owner:** Aryan (frontend) · **Backend owner:** Naman
-**Repo:** `Namans12/tigergraph`. Work on branch `ui`, and open PRs into `tigergraph-fraud-agent`.
+**Repo:** `Namans12/RingSleuth`. Work on branch `ui`, and open PRs into `tigergraph-fraud-agent`.
 **Hard deadline:** 2026-09-24 23:59 IST. **UI feature freeze:** 2026-09-24 18:00 IST. After that, only bug fixes and swapping in the real data.
 
 ---
@@ -178,7 +178,7 @@ interface AnswerFile {
 }
 ```
 
-Mock: the README's HHG-017 example (README.md, "Example" section) is a valid file. Use it as `HHG-017.json`, then clone and vary it for 3–4 more mocks: one `legitimate` (empty lists, exposure 0, no SAR), one `uncertain` with ESCALATE_TO_ANALYST, and one `undocumented` with `pattern_description`.
+Mock: the README's HHG-017 example (docs/TASK.md, "Example" section) is a valid file. Use it as `HHG-017.json`, then clone and vary it for 3–4 more mocks: one `legitimate` (empty lists, exposure 0, no SAR), one `uncertain` with ESCALATE_TO_ANALYST, and one `undocumented` with `pattern_description`.
 
 ### 3.2 `runs/latest/batch_summary.json`
 

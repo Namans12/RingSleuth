@@ -32,12 +32,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       </a>
       <header className="no-print sticky top-0 z-40 h-14 border-b border-ink-700/80 bg-ink-950/90 backdrop-blur">
         <div className="mx-auto flex h-full max-w-[1400px] items-center gap-4 px-4">
-          <Link to="/" className="flex items-center gap-2.5" aria-label="FraudGraph Investigator — overview">
+          <Link to="/" className="flex items-center gap-2.5" aria-label="RingSleuth — overview">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-tg-500/15 ring-1 ring-tg-500/40">
               <Network className="h-4.5 w-4.5 text-tg-400" aria-hidden />
             </span>
             <span className="leading-tight">
-              <span className="block text-[15px] font-semibold tracking-tight text-white">FraudGraph Investigator</span>
+              <span className="block text-[15px] font-semibold tracking-tight text-white">RingSleuth</span>
               <span className="block text-[11px] text-zinc-500">TigerGraph × Hacker House Goa</span>
             </span>
           </Link>

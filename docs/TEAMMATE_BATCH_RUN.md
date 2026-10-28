@@ -9,8 +9,8 @@ fixed today; it just needs a account with quota to finish the run.
 ## 1. Get the code
 
 ```bash
-git clone https://github.com/Namans12/tigergraph.git
-cd tigergraph
+git clone https://github.com/Namans12/RingSleuth.git
+cd RingSleuth
 git checkout tigergraph-fraud-agent
 git pull
 ```
@@ -22,7 +22,7 @@ Confirm you're on commit `7dbca76` or later (`git log --oneline -1`).
 `transactions.csv`, `identity.csv`, `closed_cases_history.csv`, `case_pack.csv`
 are gitignored (too large / benchmark integrity) — you already have these
 from the hackathon dataset download. Place all four **directly in the repo
-root** (`tigergraph/`, the folder you just cloned — not inside any
+root** (`RingSleuth/`, the folder you just cloned — not inside any
 subfolder).
 
 ## 3. Set up Python

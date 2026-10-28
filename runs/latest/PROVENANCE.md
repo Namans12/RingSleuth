@@ -1,5 +1,7 @@
 # Provenance: Task 14 consolidated 20-case output
 
+Repository references use the current RingSleuth name; historical branch names, commit IDs and run data are unchanged.
+
 This branch (`fix/task14-evidence-classification`) previously had 10 of the 20
 required cases, produced by the GPT-5.5/Pi investigation run:
 
@@ -8,7 +10,7 @@ HHG-001, HHG-008, HHG-009, HHG-010, HHG-011, HHG-013, HHG-014, HHG-017, HHG-019,
 ```
 
 The remaining 10 cases were imported from Naman's independently completed run
-on `Namans12/tigergraph:tigergraph-fraud-agent` (post-calibration-fix
+on `Namans12/RingSleuth:tigergraph-fraud-agent` (post-calibration-fix
 codebase, commit `a8bb493`), executed locally against Ollama rather than
 Groq/GPT-5.5:
 
@@ -18,7 +20,7 @@ HHG-002, HHG-003, HHG-004, HHG-005, HHG-006, HHG-007, HHG-012, HHG-015, HHG-016,
 
 - **LLM backend:** Ollama `qwen3:4b-instruct` (local), embeddings via Ollama
   `nomic-embed-text`
-- **Agent code commit:** `a8bb493` on `Namans12/tigergraph:tigergraph-fraud-agent`
+- **Agent code commit:** `a8bb493` on `Namans12/RingSleuth:tigergraph-fraud-agent`
   (includes the 5 calibration fixes from `TASK14_ALL_FRAUD_DIAGNOSTIC.md`)
 - **TigerGraph workspace:** same shared Savanna instance used by the rest of
   the project

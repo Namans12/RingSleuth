@@ -1,9 +1,9 @@
 {
-  "name": "fraudgraph-investigator-ui",
+  "name": "ringsleuth-ui",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Static investigation console for the TigerGraph x Hacker House Goa FraudGraph Investigator.",
+  "description": "Static investigation console for the TigerGraph x Hacker House Goa RingSleuth.",
   "engines": {
     "node": ">=20.11"
   },

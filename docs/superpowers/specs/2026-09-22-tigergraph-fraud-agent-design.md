@@ -11,11 +11,11 @@ TigerGraph (graph + vector/GraphRAG) and closed-case memory, decides a fraud ver
 pattern, and probability, recommends next-best actions under the bank's fraud policy
 (with approval routing), writes a suspicious activity report when the policy requires
 one, writes the case back into the graph as memory, and emits one answer JSON file per
-case matching the README's exact schema. A Streamlit dashboard demonstrates case
+case matching the task brief's exact schema. A React dashboard demonstrates case
 progression, evidence, and recommendations for judges.
 
 Full task spec, fraud policy (rules R1–R10), answer JSON schema, and worked example are
-in [`README.md`](../../../README.md) — that document is the ground truth for output
+in [`TASK.md`](../../TASK.md) — that document is the ground truth for output
 format; this design covers **how we build the system that produces it**.
 
 ## 2. Constraints that shaped this design
@@ -121,7 +121,7 @@ GraphRAG requirement is satisfied by *combining* both, not vector search alone.
 
 ## 6. Agent architecture
 
-LangGraph state machine, one run per case pack row, following the README's 8-step flow:
+LangGraph state machine, one run per case pack row, following the task brief's 8-step flow:
 
 1. **Trigger** — load the case-pack row.
 2. **Gather evidence (deterministic core)** — Python always runs a fixed set of graph
@@ -173,7 +173,7 @@ LangGraph state machine, one run per case pack row, following the README's 8-ste
 
 ## 8. UI
 
-Streamlit dashboard (pure Python, fastest to build solo): case list (20 cases) with
+React dashboard (TypeScript, reading synchronized JSON): case list (20 cases) with
 verdict/pattern/risk; per-case detail view showing the evidence timeline, retrieved
 similar prior cases, initial vs. final recommended actions with rule citations, and
 the SAR narrative when filed. Reads the generated JSON files directly (source of
@@ -199,7 +199,7 @@ a production app.
    hand-investigated case first.
 7. Run all 20 cases, validate output schema, spot-check a few against the policy by
    hand.
-8. Streamlit dashboard.
+8. React dashboard.
 9. Demo video, blog post, social post (can run in parallel with later build steps).
 
 ## 10. Explicit scope cuts / risks (for the blog post's "what we'd improve")
