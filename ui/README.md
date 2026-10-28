@@ -1,4 +1,4 @@
-# FraudGraph Investigator — investigation console (`ui/`)
+# RingSleuth — investigation console (`ui/`)
 
 A static React/TypeScript console that lets a judge inspect what the backend
 agent concluded for each benchmark case: verdict, evidence, retrieved memory,

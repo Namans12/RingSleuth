@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.10, `tigergraph-mcp` + `mcp` SDK, LangGraph, Groq's free-tier API (`openai/gpt-oss-120b`, OpenAI-compatible client) for LLM reasoning with local Ollama (`qwen3:4b-instruct`) as a `LLM_BACKEND=ollama` fallback, Ollama `nomic-embed-text` for embeddings (always local, regardless of LLM backend), Pydantic v2, pandas, pypdf, Streamlit, pytest.
 
-**Spec:** [docs/superpowers/specs/2026-09-22-tigergraph-fraud-agent-design.md](../specs/2026-09-22-tigergraph-fraud-agent-design.md) — that doc explains *why*; this plan is *how*, task by task. [README.md](../../../README.md) is the ground truth for the answer JSON schema, fraud policy (rules R1–R10), and the 20 cases.
+**Spec:** [docs/superpowers/specs/2026-09-22-tigergraph-fraud-agent-design.md](../specs/2026-09-22-tigergraph-fraud-agent-design.md) — that doc explains *why*; this plan is *how*, task by task. [TASK.md](../../TASK.md) is the ground truth for the answer JSON schema, fraud policy (rules R1–R10), and the 20 cases.
 
 ## Global Constraints
 
@@ -1942,7 +1942,7 @@ git commit -m "feat: connected-components graph algorithm for fraud-ring cluster
 **Interfaces:**
 - Produces: `POLICY_CHUNKS: list[dict]` (each `{"doc_id", "source": "policy"|"pattern", "section", "text"}`), `chunk_pdf_text(text: str, source_name: str) -> list[dict]`, `embed(texts: list[str]) -> list[list[float]]` (calls Ollama `nomic-embed-text`). Task 10 (`retrieve_knowledge` tool) queries the `KnowledgeDoc` vertices this task creates.
 
-- [ ] **Step 1: Write `src/ingestion/policy_chunks.py`** — the policy text, hand-chunked by rule (this is short enough to just write out; it's the actual R1–R10 text from README.md, not paraphrased).
+- [ ] **Step 1: Write `src/ingestion/policy_chunks.py`** — the policy text, hand-chunked by rule (this is short enough to just write out; it's the actual R1–R10 text from docs/TASK.md, not paraphrased).
 
 ```python
 from __future__ import annotations
