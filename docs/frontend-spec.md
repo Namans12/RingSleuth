@@ -1,7 +1,7 @@
 # RingSleuth: Frontend Build Spec
 
 **Owner:** Aryan (frontend) · **Backend owner:** Naman
-**Repo:** `Namans12/tigergraph`. Work on branch `ui`, and open PRs into `tigergraph-fraud-agent`.
+**Repo:** `Namans12/RingSleuth`. Work on branch `ui`, and open PRs into `tigergraph-fraud-agent`.
 **Hard deadline:** 2026-09-24 23:59 IST. **UI feature freeze:** 2026-09-24 18:00 IST. After that, only bug fixes and swapping in the real data.
 
 ---

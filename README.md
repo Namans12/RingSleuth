@@ -1,5 +1,7 @@
 # RingSleuth
 
+Source: [Namans12/RingSleuth](https://github.com/Namans12/RingSleuth).
+
 **A graph-native fraud investigation agent.** For each flagged card alert, a LangGraph agent
 investigates 590k card transactions stored in TigerGraph, retrieves similar closed cases
 (GraphRAG), applies a deterministic fraud-policy engine, drafts a suspicious activity report
