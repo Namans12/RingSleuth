@@ -43,7 +43,7 @@ export function KpiStrip({ stats }: { stats: OverviewStats }) {
       />
       <Kpi label="SARs filed" value={fmtInt(stats.sarFiled)} sub={`of ${stats.casesTotal} cases`} />
       <Kpi label="Total exposure" value={fmtUsdCompact(stats.totalExposure)} sub="sum of case exposure_usd" />
-      <Kpi label="Changed" value={fmtInt(stats.actionsChanged)} sub="after requested evidence" />
+      <Kpi label="Changed" value={fmtInt(stats.actionsChanged)} sub="initial vs. final actions" />
       <Kpi label="Tool calls" value={stats.totalToolCalls === undefined ? na : fmtInt(stats.totalToolCalls)} sub={derived ? "summed from answer files" : "batch total"} />
       <Kpi label="Tokens" value={stats.totalTokens === undefined ? na : fmtInt(stats.totalTokens)} sub={derived ? "summed from answer files" : "batch total"} />
       <Kpi label="Avg latency" value={stats.avgLatency === undefined ? na : fmtSeconds(stats.avgLatency)} sub="per case" />

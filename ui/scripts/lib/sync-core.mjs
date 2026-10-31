@@ -165,6 +165,7 @@ export async function runSync(opts) {
 
   /* ---- answers */
   const answers = new Map(); // caseId -> { file, view, valid }
+  const rawAnswers = new Map();
   const copyCases = [];
   for (const name of caseNames) {
     const m = C.CASE_FILE_RE.exec(name);
@@ -189,7 +190,7 @@ export async function runSync(opts) {
       continue;
     }
     const v = C.validateAnswer(parsed.value, stem);
-    v.diagnostics.forEach(push);
+    rawAnswers.set(stem, parsed.value);
     if (v.view) {
       if ([...answers.values()].some((x) => x.view.case_id === v.view.case_id)) {
         errors.push(`[${v.view.case_id}] answer: duplicate case_id across files`);
@@ -200,6 +201,7 @@ export async function runSync(opts) {
 
   /* ---- traces */
   const traces = new Map();
+  const traceContexts = new Map();
   const copyTraces = [];
   for (const name of listJson(layout.tracesDir)) {
     const m = C.TRACE_FILE_RE.exec(name);
@@ -222,9 +224,19 @@ export async function runSync(opts) {
     v.diagnostics.forEach(push);
     if (v.trace) {
       traces.set(stem, v.trace);
+      if (!v.diagnostics.some((d) => d.level === "error")) traceContexts.set(stem, v.trace);
       const a = answers.get(stem);
       if (a) C.crossCheckAnswerTrace(a.view, v.trace).forEach(push);
     }
+  }
+
+  // Cross-field answer rules need the trigger's provenance. Do not infer an
+  // existing customer report from free text in the answer itself.
+  for (const [id, raw] of rawAnswers) {
+    const v = C.validateAnswer(raw, id, traceContexts.get(id));
+    v.diagnostics.forEach(push);
+    const answer = answers.get(id);
+    if (answer) answer.valid = v.contractValid;
   }
 
   /* ---- summary */
@@ -236,7 +248,7 @@ export async function runSync(opts) {
     const parsed = readJson(layout.summaryPath);
     if (!parsed.ok) errors.push(`summary: batch_summary.json is invalid JSON (${parsed.error})`);
     else {
-      const v = C.validateSummary(parsed.value);
+      const v = C.validateSummary(parsed.value, traceContexts);
       v.diagnostics.forEach(push);
       if (v.summary) {
         summary = v.summary;

@@ -46,6 +46,7 @@ function ActionCard({ entry, status, exposure }: { entry: ActionView; status?: A
 export function ActionsTab({ answer, trace, traceEntry }: { answer: AnswerView; trace?: TraceFile; traceEntry?: TraceEntry }) {
   const { initial, final, what_changed } = answer.next_best_actions;
   const changed = actionsChanged(answer);
+  const existingReport = answer.evidence_requests.length === 0 && trace?.case_id === answer.case_id && trace.trigger.trigger_type === "customer_report";
   const diff = diffActions(answer);
   const statusOf = (action: string) => diff.find((d) => d.action === action)?.status;
   const exposure = answer.case.exposure_usd;
@@ -64,7 +65,8 @@ export function ActionsTab({ answer, trace, traceEntry }: { answer: AnswerView; 
       >
         <GitCompareArrows className={cn("mt-0.5 h-5 w-5 shrink-0", changed ? "text-tg-400" : "text-zinc-500")} aria-hidden />
         <div>
-          <h2 className="text-sm font-semibold text-zinc-100">{changed ? "The recommendation changed after evidence" : "No change between initial and final actions"}</h2>
+          <h2 className="text-sm font-semibold text-zinc-100">{changed ? existingReport ? "The recommendation changed after applying the existing customer report" : "The recommendation changed after evidence" : "No change between initial and final actions"}</h2>
+          {existingReport && <p className="mt-1 text-sm text-zinc-400">Initial actions precede the customer report already on file; final actions include it. No follow-up request was made.</p>}
           <p className="mt-0.5 text-sm text-zinc-300">
             <span className="text-zinc-500">what_changed: </span>
             {what_changed ? `“${what_changed}”` : <em className="text-zinc-500">empty</em>}
