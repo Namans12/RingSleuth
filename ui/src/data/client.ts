@@ -18,6 +18,7 @@ import {
   type DataMode,
   type Diagnostic,
   type TraceValidation,
+  type TraceFile,
 } from "@/contracts";
 
 export type FetchLike = (input: string) => Promise<Pick<Response, "ok" | "status" | "text">>;
@@ -147,24 +148,8 @@ export class DataClient {
         return { caseId, file };
       }
       const answer = validateAnswer(file.raw, caseId);
-      diagnostics.push(...answer.diagnostics);
       return { caseId, file, answer };
     });
-
-    let summary: BatchSummary | undefined;
-    if (manifest.summary_found) {
-      if (summaryFile.raw === undefined) {
-        diagnostics.push({ level: "error", scope: "summary", message: summaryFile.error ?? "batch_summary.json is missing" });
-      } else {
-        const v = validateSummary(summaryFile.raw);
-        diagnostics.push(...v.diagnostics);
-        summary = v.summary;
-        if (summary) {
-          const views = cases.flatMap((c) => (c.answer?.view ? [c.answer.view] : []));
-          diagnostics.push(...crossCheckSummaryAnswers(summary, views));
-        }
-      }
-    }
 
     // Traces load in parallel; failures stay per-case.
     const traceEntries = await Promise.all(
@@ -191,9 +176,36 @@ export class DataClient {
       diagnostics.push(...(t.validation?.diagnostics ?? []), ...t.crosscheck);
     }
 
+    const traceContexts = new Map<string, TraceFile>();
+    for (const [id, entry] of traces) {
+      if (entry.validation?.trace && !entry.validation.diagnostics.some((d) => d.level === "error")) {
+        traceContexts.set(id, entry.validation.trace);
+      }
+    }
+    for (const entry of cases) {
+      if (entry.file.raw === undefined) continue;
+      entry.answer = validateAnswer(entry.file.raw, entry.caseId, traceContexts.get(entry.caseId));
+      diagnostics.push(...entry.answer.diagnostics);
+    }
+
+    let summary: BatchSummary | undefined;
+    if (manifest.summary_found) {
+      if (summaryFile.raw === undefined) {
+        diagnostics.push({ level: "error", scope: "summary", message: summaryFile.error ?? "batch_summary.json is missing" });
+      } else {
+        const v = validateSummary(summaryFile.raw, traceContexts);
+        diagnostics.push(...v.diagnostics);
+        summary = v.summary;
+        if (summary) {
+          const views = cases.flatMap((c) => (c.answer?.view ? [c.answer.view] : []));
+          diagnostics.push(...crossCheckSummaryAnswers(summary, views));
+        }
+      }
+    }
+
     return {
       manifest,
-      mode: effectiveMode(manifest, cases, summary, diagnostics),
+      mode: effectiveMode(manifest, cases, summary, diagnostics, traces),
       summary,
       summaryFile: manifest.summary_found ? summaryFile : undefined,
       cases,
@@ -212,13 +224,18 @@ export function effectiveMode(
   cases: CaseEntry[],
   summary: BatchSummary | undefined,
   diagnostics: Diagnostic[],
+  traces: ReadonlyMap<string, TraceEntry> = new Map(),
 ): DataMode {
   const demo = cases.some((c) => c.caseId.startsWith("DEMO-")) || summary?.run_id.startsWith("DEMO-") === true;
   if (manifest.mode === "fixtures" || demo) return "fixtures";
   if (manifest.mode === "official") {
     const blocking = diagnostics.some((d) => d.level === "error");
     const allValid = cases.length > 0 && cases.every((c) => c.answer?.contractValid);
-    if (blocking || !allValid || !summary) return "partial";
+    const finalWrites = cases.every((c) => c.answer?.view?.case.written_to_graph) &&
+      summary?.cases.every((row) => row.validation_passed && row.written_to_graph);
+    const finalTraces = [...traces.values()].every((entry) => !entry.present ||
+      (entry.validation?.trace?.validation.passed && entry.validation.trace.graph_write.read_back_ok));
+    if (blocking || !allValid || !summary || !finalWrites || !finalTraces) return "partial";
   }
   return manifest.mode;
 }

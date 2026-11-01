@@ -53,7 +53,7 @@ export interface AnswerValidation {
   diagnostics: Diagnostic[];
 }
 
-export function validateAnswer(raw: unknown, expectedCaseId?: string): AnswerValidation {
+export function validateAnswer(raw: unknown, expectedCaseId?: string, trace?: TraceFile): AnswerValidation {
   const diagnostics: Diagnostic[] = [];
   const strict = AnswerFileSchema.safeParse(raw);
   const view = strict.success ? undefined : AnswerDisplaySchema.safeParse(raw);
@@ -88,7 +88,9 @@ export function validateAnswer(raw: unknown, expectedCaseId?: string): AnswerVal
     });
   }
 
-  const semantic = answerSemanticIssues(rendered);
+  const customerReportOnFile = trace?.case_id === rendered.case_id &&
+    trace.trigger.trigger_type === "customer_report" && trace.trigger.trigger_text.trim().length > 0;
+  const semantic = answerSemanticIssues(rendered, customerReportOnFile);
   diagnostics.push(
     ...semantic.map((issue) => ({ ...issue, scope: "answer" as const, caseId: rendered.case_id })),
   );
@@ -174,6 +176,9 @@ export function validateTrace(raw: unknown, expectedCaseId?: string): TraceValid
     add("warning", "graph write reported but read-back did not succeed; memory is treated as unverified");
   }
   if (!t.validation.passed) add("warning", "backend validation did not pass for this case");
+  if (t.validation.passed && t.validation.errors.length) {
+    add("error", "backend validation claims a pass but also lists errors", "validation");
+  }
   return { trace: t, diagnostics: d };
 }
 
@@ -201,7 +206,13 @@ export function crossCheckAnswerTrace(a: AnswerView, t: TraceFile): Diagnostic[]
   const retrieved = new Set(t.retrieval.prior_cases.map((p) => p.case_id));
   const unretrieved = a.case.similar_prior_cases.filter((id) => !retrieved.has(id));
   if (unretrieved.length) {
-    add("warning", `similar_prior_cases not present in trace retrieval: ${unretrieved.join(", ")}`, "case.similar_prior_cases");
+    const graphEvidence = new Set(a.case.evidence
+      .filter((e) => e.source === "graph" && e.ref === `query:closed_case_lookup(card_id=${t.trigger.card_id})`)
+      .flatMap((e) => e.entity_ids));
+    const graphOnly = unretrieved.filter((id) => graphEvidence.has(id));
+    const unrecorded = unretrieved.filter((id) => !graphEvidence.has(id));
+    if (graphOnly.length) add("warning", `similar_prior_cases not present in trace retrieval: ${graphOnly.join(", ")}. The answer cites the graph closed-case lookup; this trace records vector candidates only, so lookup membership cannot be independently cross-checked.`, "case.similar_prior_cases");
+    if (unrecorded.length) add("warning", `similar_prior_cases not present in trace retrieval or the answer's graph lookup evidence: ${unrecorded.join(", ")}`, "case.similar_prior_cases");
   }
   const cited = new Set(a.case.similar_prior_cases);
   const usedNotCited = t.retrieval.prior_cases.filter((p) => p.used && !cited.has(p.case_id)).map((p) => p.case_id);
@@ -219,8 +230,30 @@ export interface SummaryValidation {
   diagnostics: Diagnostic[];
 }
 
-export function validateSummary(raw: unknown): SummaryValidation {
-  const parsed = BatchSummarySchema.safeParse(raw);
+export function validateSummary(raw: unknown, traces: ReadonlyMap<string, TraceFile> = new Map()): SummaryValidation {
+  const derived: Diagnostic[] = [];
+  // The submitted mixed-provider batch omits row metadata. Recover only
+  // missing keys from that case's validated trace; never replace a supplied
+  // value, infer a backend pass, or mutate the original JSON.
+  let input = raw;
+  if (raw && typeof raw === "object" && "cases" in raw && Array.isArray(raw.cases)) {
+    input = { ...raw, cases: raw.cases.map((row: unknown, index: number) => {
+      if (!row || typeof row !== "object" || !("case_id" in row) || typeof row.case_id !== "string") return row;
+      const trace = traces.get(row.case_id);
+      if (!trace || trace.case_id !== row.case_id) return row;
+      const values = {
+        trigger_type: trace.trigger.trigger_type,
+        customer_id: trace.trigger.customer_id,
+        card_id: trace.trigger.card_id,
+        opened_at: trace.trigger.opened_at,
+        validation_passed: trace.validation.passed,
+      };
+      const missing = Object.entries(values).filter(([key]) => !Object.hasOwn(row, key));
+      if (missing.length) derived.push({ level: "info", scope: "summary", caseId: row.case_id, path: `cases.${index}`, message: `Missing summary fields read from the matching trace: ${missing.map(([key]) => key).join(", ")}. Original summary bytes are preserved.` });
+      return { ...Object.fromEntries(missing), ...row };
+    }) };
+  }
+  const parsed = BatchSummarySchema.safeParse(input);
   if (!parsed.success) {
     return {
       diagnostics: [
@@ -230,7 +263,7 @@ export function validateSummary(raw: unknown): SummaryValidation {
     };
   }
   const s = parsed.data;
-  const d: Diagnostic[] = [];
+  const d: Diagnostic[] = [...derived];
   const add = (level: Severity, message: string) => d.push({ level, scope: "summary", message });
   if (s.cases_total !== s.cases.length) add("error", `cases_total=${s.cases_total} but ${s.cases.length} case rows are listed`);
   const count = (pred: (c: BatchSummary["cases"][number]) => boolean) => s.cases.filter(pred).length;
@@ -244,6 +277,14 @@ export function validateSummary(raw: unknown): SummaryValidation {
   if (verdictTotal !== s.cases.length) add("warning", "verdict distribution does not add up to the number of cases");
   const ids = s.cases.map((c) => c.case_id);
   if (new Set(ids).size !== ids.length) add("error", "batch summary lists a case more than once");
+  for (const row of s.cases) {
+    const trace = traces.get(row.case_id);
+    if (!trace || trace.case_id !== row.case_id) continue;
+    for (const key of ["trigger_type", "customer_id", "card_id", "opened_at"] as const) {
+      if (row[key] !== trace.trigger[key]) d.push({ level: "error", scope: "summary", caseId: row.case_id, path: key, message: `summary ${key} disagrees with the matching trace` });
+    }
+    if (row.validation_passed !== trace.validation.passed) d.push({ level: "error", scope: "summary", caseId: row.case_id, path: "validation_passed", message: "summary validation_passed disagrees with the matching trace" });
+  }
   return { summary: s, diagnostics: d };
 }
 
@@ -269,6 +310,7 @@ export function crossCheckSummaryAnswers(s: BatchSummary, answers: AnswerView[])
     if (row.final_actions.join(",") !== fin) add("error", "summary final_actions ≠ answer final actions");
     const ini = a.next_best_actions.initial.map((x) => x.action).join(",");
     if (row.initial_actions.join(",") !== ini) add("error", "summary initial_actions ≠ answer initial actions");
+    if (row.actions_changed !== (ini !== fin)) add("error", "summary actions_changed disagrees with the initial/final action names");
   }
   for (const a of answers) {
     if (!s.cases.some((c) => c.case_id === a.case_id)) {

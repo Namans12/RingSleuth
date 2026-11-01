@@ -110,7 +110,10 @@ export function EvidenceTab({ answer, trace, traceEntry, graphIds, onSelectEntit
               ))}
               {citedNotRetrieved.map((id) => (
                 <li key={id} className="rounded-md border border-amber-400/40 bg-amber-400/5 px-2.5 py-2 text-[12.5px] text-amber-100">
-                  <span className="id font-semibold">{id}</span> is cited by the answer but absent from the trace&apos;s retrieval results.
+                  <span className="id font-semibold">{id}</span> is cited by the answer but absent from the trace&apos;s vector-retrieval results.
+                  {answer.case.evidence.some((e) => e.source === "graph" && e.ref === `query:closed_case_lookup(card_id=${trace.trigger.card_id})` && e.entity_ids.includes(id)) && (
+                    <p className="mt-1 text-[12px] text-amber-200/80">The answer lists this ID in graph-lookup evidence. This trace does not record that lookup&apos;s IDs, so the citation cannot be independently verified here.</p>
+                  )}
                 </li>
               ))}
             </ul>

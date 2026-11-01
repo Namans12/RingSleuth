@@ -39,6 +39,31 @@ The browser re-validates everything it loads. If the manifest says `official`
 but a file fails in the browser, the page drops to `partial`. Any `DEMO-` case
 ID or `DEMO-` run ID always forces the fixture banner.
 
+### Submitted batch compatibility
+
+The original mixed-provider submission is preserved byte for byte. Both the
+browser and sync validator can read its missing summary-row metadata
+(`trigger_type`, `customer_id`, `card_id`, `opened_at`, `validation_passed`)
+from the matching, validated execution trace. This is an in-memory projection:
+the raw summary/download remains unchanged, the origin of each supplied field
+appears in diagnostics, and explicit conflicting or invalid values still fail.
+Missing traces never imply a backend validation pass.
+
+For a trace-confirmed `customer_report`, initial actions precede application of
+the customer's statement already on file; final actions include it. Such a
+case does not need an invented follow-up in `evidence_requests`. Without that
+matching trace, the no-request/no-change rule remains in force. Changes to
+policy-reason wording alone do not count as changed actions.
+
+The submitted batch now has 20 contract-valid answers and 20 valid traces,
+with six retained citation-provenance warnings. Those answers cite IDs in
+graph-lookup evidence that are absent from the trace's vector candidates.
+The old traces do not contain the graph lookup's result IDs, so independent
+membership verification is unavailable; the warnings remain visible. Resolving
+them fully requires additional original execution evidence or a separately
+recorded future run, not edited historical outputs. Contract validity is not
+an accuracy score for the fraud verdicts.
+
 ## Prerequisites
 
 - Node.js 20.11+ (tested with Node 22) and npm 10+.
@@ -120,7 +145,9 @@ no SAR; `first_suspicious_txn_id` is in `affected_txn_ids`;
 `written_to_graph: true` requires `graph_case_id`; `sar.file` agrees with
 `FILE_REPORT`; a filed SAR has subjects, a positive amount, two ordered dates and
 a narrative; with no evidence request, initial = final and `what_changed` is
-`nothing`. Warnings cover sentence counts and the README approval-route table.
+`nothing`, except when a matching validated trace confirms a customer report
+already on file as described above. Warnings cover sentence counts and the
+README approval-route table.
 
 ### Missing trace behavior
 

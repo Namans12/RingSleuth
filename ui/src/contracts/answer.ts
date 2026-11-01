@@ -277,7 +277,7 @@ const sameActions = (a: ActionView[], b: ActionView[]) =>
  * contract the spec freezes; warnings mirror stricter reference-validator rules
  * (sentence counts, route table) that the backend owns.
  */
-export function answerSemanticIssues(a: AnswerView): RuleIssue[] {
+export function answerSemanticIssues(a: AnswerView, customerReportOnFile = false): RuleIssue[] {
   const issues: RuleIssue[] = [];
   const err = (path: string, message: string) => issues.push({ level: "error", path, message });
   const warn = (path: string, message: string) => issues.push({ level: "warning", path, message });
@@ -342,12 +342,22 @@ export function answerSemanticIssues(a: AnswerView): RuleIssue[] {
     }
   }
 
-  if (a.evidence_requests.length === 0) {
+  // policy_node applies a customer_report trigger directly: initial actions
+  // precede that report, final actions include it. It is not a new request.
+  // Only validateAnswer's matching, validated trace can supply this context.
+  if (a.evidence_requests.length === 0 && !customerReportOnFile) {
     if (!sameActions(a.next_best_actions.initial, a.next_best_actions.final)) {
       err("next_best_actions", "no evidence was requested, so final actions must equal initial actions");
     }
     if (a.next_best_actions.what_changed.trim().toLowerCase() !== "nothing") {
       err("next_best_actions.what_changed", "no evidence was requested, so what_changed must be 'nothing'");
+    }
+  }
+  if (a.evidence_requests.length === 0 && customerReportOnFile) {
+    const changed = a.next_best_actions.initial.length !== a.next_best_actions.final.length ||
+      a.next_best_actions.initial.some((entry, i) => entry.action !== a.next_best_actions.final[i]?.action || entry.route !== a.next_best_actions.final[i]?.route);
+    if (changed && a.next_best_actions.what_changed.trim().toLowerCase() === "nothing") {
+      err("next_best_actions.what_changed", "actions changed after the existing customer report, so what_changed must explain the change");
     }
   }
 

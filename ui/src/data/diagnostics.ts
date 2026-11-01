@@ -41,7 +41,7 @@ export function backendValidation(trace?: TraceFile, row?: BatchCaseSummary): Ba
 
 export function actionsChanged(a: AnswerView): boolean {
   const { initial, final } = a.next_best_actions;
-  return JSON.stringify(initial.map((x) => [x.action, x.route, x.reason])) !== JSON.stringify(final.map((x) => [x.action, x.route, x.reason]));
+  return JSON.stringify(initial.map((x) => [x.action, x.route])) !== JSON.stringify(final.map((x) => [x.action, x.route]));
 }
 
 export interface ActionDiffItem {
