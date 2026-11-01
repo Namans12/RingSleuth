@@ -134,6 +134,20 @@ describe("trace contract", () => {
     expect(v.diagnostics.some((d) => d.level === "error" && /after the case cutoff/.test(d.message))).toBe(true);
   });
 
+  it("accepts recorded graph lookup membership without hiding missing citations", () => {
+    const a = validateAnswer(FIXTURE_ANSWERS["DEMO-001"]).view as AnswerView;
+    const t = clone(FIXTURE_TRACES["DEMO-001"]) as Json;
+    t.retrieval.prior_cases = a.case.similar_prior_cases.map((case_id) => ({
+      case_id, outcome: "confirmed_fraud", pattern: "card_testing", score: null,
+      used: true, origins: ["closed_case_lookup"],
+    }));
+    const trace = validateTrace(t).trace!;
+    expect(trace.retrieval.prior_cases[0]?.origins).toEqual(["closed_case_lookup"]);
+    expect(crossCheckAnswerTrace(a, trace).some((d) => /not present in trace retrieval/.test(d.message))).toBe(false);
+    trace.retrieval.prior_cases = [];
+    expect(crossCheckAnswerTrace(a, trace).some((d) => /not present in trace retrieval/.test(d.message))).toBe(true);
+  });
+
   it("cross-checks answer and trace", () => {
     const a = validateAnswer(FIXTURE_ANSWERS["DEMO-001"]).view as AnswerView;
     const t = clone(FIXTURE_TRACES["DEMO-001"]) as Json;
