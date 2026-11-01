@@ -66,7 +66,7 @@ an accuracy score for the fraud verdicts.
 
 ## Prerequisites
 
-- Node.js 20.11+ (tested with Node 22) and npm 10+.
+- Node.js 20.19+, 22.13+, or 24+ and npm 10+ (matching the build tools’ engine ranges).
 
 ## Install and develop
 
