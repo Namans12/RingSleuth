@@ -38,9 +38,9 @@ describe("answer contract", () => {
 
   const mutations: [string, (a: Json) => void, RegExp][] = [
     ["an unknown top-level field", (a) => (a.extra = 1), /unrecognized/i],
-    ["an unknown action", (a) => (a.next_best_actions.final[0].action = "FREEZE_ACCOUNT"), /invalid enum/i],
-    ["an unknown route", (a) => (a.next_best_actions.final[0].route = "L3"), /invalid enum/i],
-    ["an unknown pattern", (a) => (a.case.pattern = "phishing"), /invalid enum/i],
+    ["an unknown action", (a) => (a.next_best_actions.final[0].action = "FREEZE_ACCOUNT"), /invalid option/i],
+    ["an unknown route", (a) => (a.next_best_actions.final[0].route = "L3"), /invalid option/i],
+    ["an unknown pattern", (a) => (a.case.pattern = "phishing"), /invalid option/i],
     ["probability above one", (a) => (a.case.fraud_probability = 1.2), /between 0 and 1|less than or equal/i],
     ["first suspicious txn outside the affected list", (a) => (a.case.first_suspicious_txn_id = "123"), /first_suspicious_txn_id/],
     ["written_to_graph without graph_case_id", (a) => (a.case.graph_case_id = ""), /requires a graph_case_id/],
