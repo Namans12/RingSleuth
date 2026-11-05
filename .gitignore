@@ -36,3 +36,6 @@ data/vectors/
 # intermediate Ollama runs during consolidation, superseded by cases/.
 cases_backup/
 runs_backup/
+
+# Fresh review runs stay separate from the historical submission.
+runs/reviews/

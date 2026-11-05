@@ -257,3 +257,25 @@ def test_build_trace_is_json_serializable():
     import json
     trace = build_trace(CASE_ROW, _answer(), _context(_final_state()))
     json.dumps(trace)  # must not raise
+
+
+def test_graph_only_retrieval_is_recorded_from_actual_lookup():
+    fs = _final_state()
+    knowledge = next(e["data"] for e in fs["evidence"] if e["type"] == "knowledge")
+    knowledge["similar_cases"] = []
+    prior = build_trace(CASE_ROW, _answer(), _context(fs))["retrieval"]["prior_cases"]
+    assert prior == [{"case_id": "CC-0141", "outcome": "confirmed_fraud", "pattern": "card_testing",
+                      "score": None, "used": True, "origins": ["closed_case_lookup"]}]
+
+
+def test_retrieval_merges_sources_without_duplicate_candidates():
+    fs = _final_state()
+    prior = build_trace(CASE_ROW, _answer(), _context(fs))["retrieval"]["prior_cases"]
+    assert len(prior) == 1
+    assert prior[0]["origins"] == ["vector_search", "closed_case_lookup"]
+    assert prior[0]["score"] == 0.1
+
+
+def test_answer_citation_cannot_create_a_retrieval_record():
+    fs = _final_state(evidence=[])
+    assert build_trace(CASE_ROW, _answer(), _context(fs))["retrieval"]["prior_cases"] == []

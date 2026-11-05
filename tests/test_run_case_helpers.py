@@ -128,3 +128,40 @@ def test_reconcile_verdict_denies_and_no_reply_do_not_override_probability():
     # semantic that a plain denial or non-response doesn't.
     assert _reconcile_verdict(0.92, "denies") == "fraud"
     assert _reconcile_verdict(0.92, "no_reply") == "fraud"
+
+
+async def _write_receipt(monkeypatch, *, corrupt=None):
+    from unittest.mock import AsyncMock, MagicMock
+    from src.run.run_case import _write_case_to_graph
+    import src.ingestion.embeddings as embeddings
+    monkeypatch.setattr(embeddings, "embed", lambda _: [[0.1, 0.2]])
+    stored = {}
+    async def call(name, args):
+        if name == "tigergraph__add_nodes":
+            stored.update(args["vertices"][0])
+            return {}
+        attrs = {key: value for key, value in stored.items() if key != "case_id"}
+        if corrupt:
+            attrs[corrupt] = "stale"
+        return {"data": {"v_id": stored["case_id"], "attributes": attrs}}
+    tg = MagicMock()
+    tg.call = AsyncMock(side_effect=call)
+    tg.upsert_vectors = AsyncMock()
+    return await _write_case_to_graph(tg, "REVIEW-test-HHG-017",
+        {"customer_id": "C1", "card_id": "C1-K1"},
+        {"pattern": "card_testing", "fraud_probability": 0.86, "evidence_claims": ["Observed sequence"]},
+        "fraud", "closed_fraud", 100.0)
+
+
+def test_write_receipt_confirms_all_attributes(monkeypatch):
+    import asyncio
+    written, timestamp = asyncio.run(_write_receipt(monkeypatch))
+    assert written is True
+    assert timestamp
+
+
+def test_matching_verdict_does_not_accept_stale_receipt(monkeypatch):
+    import asyncio
+    for field in ["status", "card_id", "fraud_probability", "exposure_usd", "summary", "written_at"]:
+        written, _ = asyncio.run(_write_receipt(monkeypatch, corrupt=field))
+        assert written is False, field

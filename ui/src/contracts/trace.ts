@@ -56,6 +56,7 @@ export const RetrievedPriorCaseSchema = z.object({
   pattern: z.string(),
   score: z.number().nullable().optional(),
   used: z.boolean(),
+  origins: z.array(z.enum(["vector_search", "closed_case_lookup"])).optional(),
 });
 
 export const RetrievedDocumentSchema = z.object({

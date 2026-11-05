@@ -30,7 +30,7 @@ Built in about 48 hours for the TigerGraph x Hacker House Goa fraud challenge
 - **Review console.** A static React app shows verdict, evidence, retrieved prior cases,
   tool provenance, action changes and the SAR for each case.
 
-![RingSleuth review console showing the committed partial-data diagnostics](docs/images/ringsleuth-console.webp)
+![RingSleuth review console](docs/images/ringsleuth-console.webp)
 
 ## Architecture
 
@@ -110,7 +110,7 @@ CNP = card-not-present.
 
 ### Read these before quoting the numbers
 
-- **Console validation differs from backend validation.** The committed UI data is marked `partial`: 20 answer files are present, with 12 passing its stricter answer contract. Summary/trace contract diagnostics are also exposed in the console. The backend-reported 20/20 result above does not imply every file passes browser validation. No result files have been altered to hide these discrepancies.
+- **Current console validation:** all 20 submitted answers and 20 matching traces pass the contract checks, with zero errors and six preserved provenance warnings. Those historical traces omit IDs returned by graph closed-case lookups, so six answers’ citations cannot be independently confirmed from their traces. New runs record both graph and vector retrieval sources. Contract validity is not verdict accuracy; the original submission files remain unchanged.
 
 - **No accuracy figure.** The organisers withheld the answer key, so verdicts and actions
   were never scored. The table describes what the agent concluded, not how often it was right.
@@ -129,7 +129,7 @@ CNP = card-not-present.
 
 ## Tech stack
 
-Python 3.10+, TigerGraph Savanna (GSQL, Connected Components, vector search) via
+Python 3.12 (tested), TigerGraph Savanna (GSQL, Connected Components, vector search) via
 `tigergraph-mcp`, LangGraph, Pydantic v2, pandas, tenacity, Ollama (embeddings and fallback
 LLM), Groq or OpenAI-compatible LLM, pytest. Review console: React 18, TypeScript, Vite,
 Tailwind, Zod, Vitest.
@@ -140,27 +140,43 @@ The dataset is not included (`transactions.csv`, `identity.csv`, `closed_cases_h
 `case_pack.csv` are gitignored). Place them in the repo root.
 
 ```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env          # TigerGraph Savanna credentials + GROQ_API_KEY (or LLM_BACKEND=ollama)
-ollama pull nomic-embed-text   # embeddings are always local; also qwen3:4b-instruct for LLM_BACKEND=ollama
-
-python -m scripts.create_schema
-python -m scripts.load_data
-python -m scripts.derive_entities
-python -m scripts.run_connected_components
-python -m scripts.ingest_knowledge
-python -m scripts.run_batch                       # writes cases/HHG-001..020.json and runs/latest/
-python -m src.run.validate_outputs cases          # expect "20/20 files passed."
+python3.12 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.lock
+cp .env.example .env  # fill in RingSleuth service credentials; never commit this file
+ollama pull nomic-embed-text
+# Also pull qwen3:4b-instruct when using LLM_BACKEND=ollama.
 ```
+
+Use the supplied benchmark CSVs; do not recover hidden labels from the original Kaggle files.
+The schema/load/derive/connected-components/knowledge-ingestion scripts are **initial setup for
+a new review workspace**. Do not rerun setup against the historical submitted workspace.
+
+New investigation batches use a unique run label and separate files:
+
+```bash
+python -m scripts.run_batch --run-id review-20261101 --data-dir /path/to/benchmark-csvs --env-file /path/to/ringsleuth.env
+# Writes runs/reviews/review-20261101/{cases/,traces/,batch_summary.json}.
+# Graph writes use REVIEW-review-20261101-HHG-* IDs.
+```
+
+A prefix protects historical graph vertices from replacement; it does not isolate vector
+retrieval. Use a dedicated review workspace for a clean rerun. Never represent a new run as
+the original submission. See [verification status](docs/verification-status.md) for remaining
+live checks and the six historical warnings.
 
 Review console (static browser UI; no live graph or LLM calls):
 
 ```bash
-cd ui && npm ci && npm run dev   # http://localhost:5173
+cd ui && npm ci && npm run dev
 ```
 
-Tests: `pytest`. The handoff reports 142 of 169 backend tests passing offline; the remaining 27 require live services. This is a historical result, not a fresh test run.
+Run `pytest` for offline checks; live tests are skipped by default. The current suite has
+150 offline tests and 30 service tests. To explicitly run service tests after configuring a
+review workspace, use `pytest --run-integration -m integration`. These may use paid LLM calls
+and create review case memory. The end-to-end test uses a unique `REVIEW-test-*` graph ID.
+
+The Python lockfile was resolved on Python 3.12. Dependency audits report no known findings
+for the tested Python environment or the UI; this does not replace application testing.
 
 ## Project structure
 

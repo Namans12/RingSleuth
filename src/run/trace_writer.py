@@ -236,7 +236,8 @@ def _build_rules_fired(final_state: dict) -> list[dict]:
 
 
 def _build_retrieval(final_state: dict, answer: AnswerFile) -> dict:
-    knowledge = (_evidence_by_type(final_state).get("knowledge") or {})
+    evidence = _evidence_by_type(final_state)
+    knowledge = evidence.get("knowledge") or {}
     used_ids = set(answer.case.similar_prior_cases)
     prior_cases = [
         {
@@ -245,10 +246,27 @@ def _build_retrieval(final_state: dict, answer: AnswerFile) -> dict:
             "pattern": c.get("pattern", ""),
             "score": c.get("distance"),
             "used": c.get("id") in used_ids,
+            "origins": ["vector_search"],
         }
         for c in (knowledge.get("similar_cases") or [])
         if c.get("id")
     ]
+    # Only include IDs actually returned in this run's graph lookup. Never
+    # infer retrieval from an answer citation or its visualization projection.
+    by_id = {c["case_id"]: c for c in prior_cases}
+    for c in evidence.get("closed_cases") or []:
+        case_id = c.get("id")
+        if not case_id:
+            continue
+        if case_id in by_id:
+            if "closed_case_lookup" not in by_id[case_id]["origins"]:
+                by_id[case_id]["origins"].append("closed_case_lookup")
+        else:
+            entry = {"case_id": case_id, "outcome": c.get("outcome", ""),
+                     "pattern": c.get("pattern", ""), "score": None,
+                     "used": case_id in used_ids, "origins": ["closed_case_lookup"]}
+            prior_cases.append(entry)
+            by_id[case_id] = entry
     documents = [
         {
             "doc_id": d.get("id", ""),
@@ -332,15 +350,15 @@ def build_trace(
         })
     steps.append({
         "step": len(steps) + 1, "node": NODE_WRITE_CASE, "label": "Write case memory",
-        "tool_calls": [{"tool": "add_nodes", "via": "mcp", "args": {}, "result_count": 1},
-                       {"tool": "upsert_vectors", "via": "mcp", "args": {}, "result_count": 1}],
-        "summary": f"Upserted FraudCase {context.get('graph_case_id', '')} and its embedding.",
+        "tool_calls": [{"tool": "add_nodes", "via": "mcp", "args": {}},
+                       {"tool": "upsert_vectors", "via": "mcp", "args": {}}],
+        "summary": f"Attempted FraudCase {context.get('graph_case_id', '')} and embedding write; see independent read-back status.",
     })
     steps.append({
         "step": len(steps) + 1, "node": NODE_READ_BACK, "label": "Independent read-back",
         "tool_calls": [{"tool": "get_node", "via": "mcp", "args": {}, "result_count": 1 if answer.case.written_to_graph else 0}],
         "summary": (
-            "Read the case back from the graph; verdict matched." if answer.case.written_to_graph
+            "Read the case back from the graph; written fields matched." if answer.case.written_to_graph
             else "Read-back did not confirm the write; written_to_graph is false."
         ),
     })

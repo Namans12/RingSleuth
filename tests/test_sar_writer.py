@@ -1,5 +1,7 @@
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from src.agent.sar_writer import write_sar_narrative
 
 

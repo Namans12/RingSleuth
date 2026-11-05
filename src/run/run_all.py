@@ -16,7 +16,7 @@ INTER_CASE_PAUSE_S = 5
 import pandas as pd
 
 from src.run.dataset_index import _default_data_dir, load_dataset_index
-from src.run.run_case import run_single_case_with_context
+from src.run.run_case import _graph_case_id, run_single_case_with_context
 from src.run.trace_writer import build_trace
 from src.run.validate_outputs import validate_answer
 from src.tg_client import INVESTIGATION_ALLOWED_TOOLS, TigerGraphMCP
@@ -58,44 +58,42 @@ def _load_existing_summary(runs_dir: Path) -> tuple[list[dict], dict[str, str]]:
     return existing.get("cases", []), existing.get("errors", {})
 
 
+def _validate_review_targets(cases_dir: str | Path, runs_dir: str | Path, prefix: str | None) -> None:
+    """Reject historical output targets before any files or external calls."""
+    root = Path(__file__).resolve().parents[2]
+    protected = [(root / "cases").resolve(), (root / "runs/latest").resolve()]
+    for target in (Path(cases_dir).resolve(), Path(runs_dir).resolve()):
+        if any(target == old or old in target.parents or target in old.parents for old in protected):
+            raise ValueError("Historical submission is protected; use separate review output directories")
+    if not prefix or not prefix.startswith("REVIEW-"):
+        raise ValueError("New runs require a unique REVIEW- graph case prefix")
+    _graph_case_id(prefix, "HHG-001")
+
+
 async def run_all(
     cases_dir: str | Path = "cases",
     runs_dir: str | Path = "runs/latest",
     data_dir: str | Path | None = None,
     case_ids: list[str] | None = None,
     merge: bool = False,
+    graph_case_prefix: str | None = None,
+    env_path: str = ".env",
 ) -> dict:
-    """Task 14: runs every case in case_pack.csv through the same
-    LangGraph flow as run_single_case, in one shared TigerGraph MCP session
-    (restricted to INVESTIGATION_ALLOWED_TOOLS -- see tg_client.py), writing
-    `cases/<case_id>.json` and a `runs/latest/batch_summary.json` (the
-    aggregate the UI's Overview screen reads -- see docs/frontend-spec.md
-    §3.2). One case's failure does not abort the batch: it's recorded in
-    `errors` and the run continues, since a live-service hiccup on case 7
-    shouldn't cost cases 8-20 their results.
+    """Run selected benchmark cases with separate review files and graph IDs.
 
-    `case_ids`, when given, restricts the run to just those cases (e.g. to
-    re-run ones that previously failed or need to be regenerated with fixed
-    code) rather than all 20. `merge=True` reads the existing
-    `runs/latest/batch_summary.json` first and replaces only the entries for
-    the cases actually run this time, recomputing every aggregate from the
-    full merged set -- so a partial rerun doesn't need to redo cases that
-    already succeeded, and the summary never silently drops cases that
-    exist on disk but weren't touched this run.
-
-    Operational note (2026-09-23): a `TaskStop` on the WRAPPING shell
-    command was observed live to NOT reliably kill the underlying python
-    process -- a "stopped" run kept writing case files and hitting Groq
-    concurrently with the next run, corrupting several outputs (a stale
-    process using pre-fix code) and rate-limiting both. Confirm no earlier
-    run's process is still alive (e.g. `Get-CimInstance Win32_Process`)
-    before starting a rerun, not just that the shell task reports stopped.
+    Historical submission paths are rejected before I/O. Reuse the same review
+    namespace with merge=True only when intentionally replacing selected review
+    cases. A dedicated TigerGraph workspace is needed to isolate retrieval too.
     """
+    _validate_review_targets(cases_dir, runs_dir, graph_case_prefix)
     base = Path(data_dir) if data_dir else _default_data_dir()
     full_cases = _load_case_pack(base)
     cases = full_cases
     if case_ids is not None:
         wanted = set(case_ids)
+        unknown = wanted - {c["case_id"] for c in cases}
+        if unknown:
+            raise ValueError(f"Unknown case IDs: {sorted(unknown)}")
         cases = [c for c in cases if c["case_id"] in wanted]
     out_dir = Path(cases_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -114,20 +112,22 @@ async def run_all(
         summary_cases = [c for c in existing_cases if c["case_id"] not in run_ids]
         errors = {cid: msg for cid, msg in errors.items() if cid not in run_ids}
 
-    async with TigerGraphMCP(allowed_tools=INVESTIGATION_ALLOWED_TOOLS) as tg:
+    async with TigerGraphMCP(env_path=env_path, allowed_tools=INVESTIGATION_ALLOWED_TOOLS) as tg:
         for i, row in enumerate(cases):
             if i > 0:
                 await asyncio.sleep(INTER_CASE_PAUSE_S)
             case_id = row["case_id"]
             print(f"--- {case_id} ---", flush=True)
             try:
-                answer, context = await run_single_case_with_context(tg, row)
+                answer, context = await run_single_case_with_context(tg, row, graph_case_prefix=graph_case_prefix)
             except Exception as e:  # noqa: BLE001 -- see docstring: one bad case must not kill the batch
                 print(f"  FAILED: {e}", flush=True)
                 errors[case_id] = str(e)
                 continue
 
             violations = validate_answer(answer, index)
+            if not answer.case.written_to_graph:
+                violations.append("Graph case write/read-back was not confirmed")
             if violations:
                 print(f"  VALIDATION ISSUES ({len(violations)}):", flush=True)
                 for v in violations:
@@ -154,7 +154,8 @@ async def run_all(
                 trace_path.write_text(json.dumps(trace, indent=2), encoding="utf-8")
                 print(f"  wrote {trace_path}", flush=True)
             except Exception as e:  # noqa: BLE001
-                print(f"  TRACE FAILED (answer is still valid): {e}", flush=True)
+                errors[case_id] = f"Trace generation failed: {e}"
+                print(f"  TRACE FAILED: {e}", flush=True)
 
             summary_cases.append({
                 "case_id": case_id,

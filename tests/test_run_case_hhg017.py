@@ -1,6 +1,9 @@
 import sys
+import uuid
 
 import pytest
+
+pytestmark = pytest.mark.integration
 
 from src.run.run_case import run_single_case
 from src.tg_client import TigerGraphMCP
@@ -19,7 +22,7 @@ async def test_hhg017_end_to_end_produces_valid_answer():
         "risk_score": 0.57,
     }
     async with TigerGraphMCP() as tg:
-        answer = await run_single_case(tg, case_row)
+        answer = await run_single_case(tg, case_row, graph_case_prefix=f"REVIEW-test-{uuid.uuid4().hex}")
 
     # The LLM's free-text evidence claims/summary can contain non-cp1252
     # characters (confirmed live: a Unicode non-breaking hyphen U+2011 in an
