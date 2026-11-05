@@ -9,6 +9,7 @@ class _TinySchema(BaseModel):
     answer: str
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_generate_structured_returns_valid_instance():
     result = await generate_structured("Reply with a JSON object with an 'answer' field containing the word 'ok'.", _TinySchema)
@@ -16,6 +17,7 @@ async def test_generate_structured_returns_valid_instance():
     assert result.answer
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_generate_with_tools_calls_a_tool_when_ambiguous():
     from src.agent.llm import generate_with_tools

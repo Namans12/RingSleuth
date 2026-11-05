@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import time
 from datetime import datetime, timezone
 
@@ -20,19 +21,20 @@ from src.tg_client import TigerGraphMCP
 GRAPH_NAME = "FraudInvestigation"
 
 
-async def run_single_case(tg: TigerGraphMCP, case_row: dict) -> AnswerFile:
-    """Back-compat wrapper (existing tests/callers use this exact signature)
-    -- discards the trace context. Use run_single_case_with_context when
+async def run_single_case(tg: TigerGraphMCP, case_row: dict, *, graph_case_prefix: str) -> AnswerFile:
+    """Run one case with an explicit review graph namespace.
+    Discards the trace context. Use run_single_case_with_context when
     you also need runs/latest/traces/<case_id>.trace.json (see run_all.py)."""
-    answer, _ctx = await run_single_case_with_context(tg, case_row)
+    answer, _ctx = await run_single_case_with_context(tg, case_row, graph_case_prefix=graph_case_prefix)
     return answer
 
 
-async def run_single_case_with_context(tg: TigerGraphMCP, case_row: dict) -> tuple[AnswerFile, dict]:
+async def run_single_case_with_context(tg: TigerGraphMCP, case_row: dict, *, graph_case_prefix: str) -> tuple[AnswerFile, dict]:
     """Same investigation as run_single_case, but also returns a `context`
     dict (final_state plus the few extra values -- written_at -- that
     only exist as locals in this function) for src.run.trace_writer to
     build a trace file from, without re-running the investigation."""
+    graph_case_id = _graph_case_id(graph_case_prefix, case_row["case_id"])
     start = time.monotonic()
     token_tracker.reset()  # each case's `tokens` field should reflect only its own calls
     app = build_graph(tg)
@@ -74,7 +76,6 @@ async def run_single_case_with_context(tg: TigerGraphMCP, case_row: dict) -> tup
     summary = _build_summary(assessment, verdict, episode, connected_card_ids)
     pattern_description = assessment.get("pattern_description", "") if assessment["pattern"] == "undocumented" else ""
 
-    graph_case_id = f"CASE-{case_row['case_id']}"
     written, written_at = await _write_case_to_graph(
         tg, graph_case_id, case_row, assessment, verdict, status, exposure_usd
     )
@@ -142,6 +143,12 @@ async def run_single_case_with_context(tg: TigerGraphMCP, case_row: dict) -> tup
         "connected_card_ids": connected_card_ids,
     }
     return answer, context
+
+
+def _graph_case_id(prefix: str, case_id: str) -> str:
+    if not prefix.startswith("REVIEW-") or not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", prefix):
+        raise ValueError("Graph case prefix must start REVIEW- and contain 1–80 letters, digits, underscores or hyphens")
+    return f"{prefix}-{case_id}"
 
 
 def _reconcile_verdict(fraud_probability: float, customer_response: str | None) -> str:
@@ -464,7 +471,7 @@ async def _write_case_to_graph(
     # proof the case is actually readable back out of the graph (the old
     # code treated `written_to_graph=True` as soon as the write calls
     # returned without raising). Read the vertex back independently and
-    # confirm it carries the values just written, matching the pattern
+    # confirm every written attribute, including the timestamp, matching the pattern
     # Aryan's review recommended (a receipt, not a response).
     try:
         readback = await tg.call("tigergraph__get_node", {"vertex_type": "FraudCase", "vertex_id": graph_case_id})
@@ -473,7 +480,13 @@ async def _write_case_to_graph(
         # FraudCase has no `primary_id_as_attribute` (confirmed live -- see
         # src/schema/build_schema.py), so `case_id` itself is only readable
         # as the vertex's own `v_id`, not inside `attributes`.
-        ok = data.get("v_id") == graph_case_id and attrs.get("verdict") == verdict
+        expected = {
+            "customer_id": case_row["customer_id"], "card_id": case_row["card_id"],
+            "verdict": verdict, "status": status, "pattern": assessment["pattern"],
+            "fraud_probability": assessment["fraud_probability"], "exposure_usd": exposure_usd,
+            "summary": summary_text, "written_at": written_at,
+        }
+        ok = data.get("v_id") == graph_case_id and all(attrs.get(key) == value for key, value in expected.items())
         return ok, written_at
     except Exception:  # noqa: BLE001
         return False, written_at

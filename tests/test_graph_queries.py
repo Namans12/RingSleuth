@@ -1,5 +1,7 @@
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from src.graph.queries import (
     card_window,
     closed_case_lookup,

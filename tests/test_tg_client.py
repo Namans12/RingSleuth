@@ -1,5 +1,7 @@
 import pytest
 
+pytestmark = pytest.mark.integration
+
 from src.tg_client import TigerGraphMCP
 
 

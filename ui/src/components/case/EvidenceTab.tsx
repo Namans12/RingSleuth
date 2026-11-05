@@ -98,6 +98,7 @@ export function EvidenceTab({ answer, trace, traceEntry, graphIds, onSelectEntit
                       <EntityChip id={p.case_id} inGraph={graphIds.has(p.case_id)} onSelect={onSelectEntity} />
                       {cited.has(p.case_id) && <Badge tone="accent">cited</Badge>}
                       {p.used ? <Badge tone="neutral">used</Badge> : <Badge tone="muted">candidate</Badge>}
+                      {p.origins?.map((origin) => <Badge key={origin} tone="muted">{origin === "closed_case_lookup" ? "graph lookup" : "vector search"}</Badge>)}
                     </div>
                     <div className="mt-1 text-[12px] text-zinc-400">
                       <span className={p.outcome === "confirmed_fraud" ? "text-red-300" : p.outcome === "cleared" ? "text-emerald-300" : ""}>{humanize(p.outcome)}</span> · <span className="font-mono">{p.pattern}</span>
